@@ -66,9 +66,30 @@ def whatsapp_webhook():
         except (IndexError, ValueError):
             respuesta = "❌ Escribe *finalizar N* donde N es el número de la tarea."
 
-    # Mensaje por defecto
+    # Si el número no tiene nombre, pedirlo
+    elif number not in nombres:
+        if message.startswith("mi nombre es"):
+            posible_nombre = message.replace("mi nombre es", "").strip().capitalize()
+            if posible_nombre:
+                nombres[number] = posible_nombre
+                with open("nombres.json", "w") as f:
+                    json.dump(nombres, f)
+                respuesta = (
+                    f"✅ Gracias, {posible_nombre}. ¡Tu nombre ha sido registrado!\n\n"
+                    "Ahora puedes agregar tareas así:\n"
+                    "*agregar*\n- Comprar abono\n- Limpiar pozo"
+                )
+            else:
+                respuesta = "❌ No entendí tu nombre. Por favor escribe: *mi nombre es Adonay*"
+        else:
+            respuesta = (
+                "👋 Hola, antes de comenzar necesito saber tu nombre.\n"
+                "Por favor escribe: *mi nombre es Adonay*"
+            )
+
+    # Mensaje por defecto si ya tiene nombre
     else:
-        nombre = nombres.get(number, number)
+        nombre = nombres[number]
         respuesta = (
             f"👋 Hola {nombre}!\n"
             "Puedes escribirme así para agregar tareas:\n"
@@ -83,16 +104,13 @@ def whatsapp_webhook():
 
     return jsonify({"reply": respuesta})
 
-
 @app.route("/", methods=["GET"])
 def index():
     return "✅ Bot activo y escuchando mensajes."
 
-
 @app.route("/ping", methods=["GET"])
 def ping():
     return "🚀 Bot corriendo correctamente."
-
 
 @app.route("/admin")
 def admin():
@@ -116,7 +134,6 @@ def admin():
     </ul>
     """
     return render_template_string(html, tasks=tasks, nombres=nombres)
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
