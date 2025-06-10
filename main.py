@@ -19,7 +19,6 @@ if os.path.exists("nombres.json"):
 else:
     nombres = {}
 
-# Ruta para recibir mensajes desde UltraMsg
 @app.route("/webhook", methods=["POST"])
 def whatsapp_webhook():
     data = request.get_json()
@@ -66,7 +65,7 @@ def whatsapp_webhook():
         except (IndexError, ValueError):
             respuesta = "❌ Escribe *finalizar N* donde N es el número de la tarea."
 
-    # Si el número no tiene nombre, pedirlo
+    # Registrar nombre si no está registrado
     elif number not in nombres:
         if message.startswith("mi nombre es"):
             posible_nombre = message.replace("mi nombre es", "").strip().capitalize()
@@ -87,7 +86,7 @@ def whatsapp_webhook():
                 "Por favor escribe: *mi nombre es Adonay*"
             )
 
-    # Mensaje por defecto si ya tiene nombre
+    # Mostrar menú si ya está registrado
     else:
         nombre = nombres[number]
         respuesta = (
@@ -104,13 +103,16 @@ def whatsapp_webhook():
 
     return jsonify({"reply": respuesta})
 
+
 @app.route("/", methods=["GET"])
 def index():
     return "✅ Bot activo y escuchando mensajes."
 
+
 @app.route("/ping", methods=["GET"])
 def ping():
     return "🚀 Bot corriendo correctamente."
+
 
 @app.route("/admin")
 def admin():
@@ -134,6 +136,7 @@ def admin():
     </ul>
     """
     return render_template_string(html, tasks=tasks, nombres=nombres)
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
