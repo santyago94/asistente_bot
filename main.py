@@ -5,7 +5,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Cargar tareas
+# Cargar tareas desde archivo JSON
 if os.path.exists("tasks.json"):
     with open("tasks.json", "r") as f:
         tasks = json.load(f)
@@ -19,59 +19,69 @@ if os.path.exists("nombres.json"):
 else:
     nombres = {}
 
-
-# Ruta raíz para POST (mensajes de WhatsApp)
-@app.route("/", methods=["POST"])
+# Ruta para recibir mensajes de WhatsApp desde UltraMsg
+@app.route("/webhook", methods=["POST"])
 def whatsapp_webhook():
     data = request.get_json()
-    number = data["data"]["from"]
-    message = data["data"]["body"].strip().lower()
+
+    try:
+        number = data["data"]["from"]
+        message = data["data"]["body"].strip().lower()
+    except (KeyError, TypeError):
+        return jsonify({"reply": "❌ Formato de mensaje inválido."})
 
     respuesta = ""
 
+    # Añadir tareas
     if "agregar" in message or "añadir" in message:
         lineas = message.split("\n")
-        tareas = [
-            linea.strip("•.- ").capitalize() for linea in lineas
-            if linea.strip()
-        ]
+        tareas = [linea.strip("•.- ").capitalize() for linea in lineas if linea.strip()]
         if number not in tasks:
             tasks[number] = []
         tasks[number].extend(tareas)
-        respuesta = f"Tareas guardadas:\n- " + "\n- ".join(tareas)
+        respuesta = f"📌 Tareas guardadas:\n- " + "\n- ".join(tareas)
 
+    # Ver tareas pendientes
     elif "ver" in message or "pendientes" in message:
         lista = tasks.get(number, [])
         if lista:
-            respuesta = "Tienes las siguientes tareas pendientes:\n- " + "\n- ".join(
-                lista)
+            respuesta = "📋 Tienes las siguientes tareas pendientes:\n- " + "\n- ".join(lista)
         else:
-            respuesta = "No tienes tareas pendientes ✅"
+            respuesta = "✅ No tienes tareas pendientes."
 
+    # Limpiar tareas
     elif "limpiar" in message or "borrar" in message:
         tasks[number] = []
-        respuesta = "✅ Tareas eliminadas"
+        respuesta = "🧹 Tareas eliminadas."
 
+    # Mensaje por defecto / ayuda
     else:
         nombre = nombres.get(number, number)
-        respuesta = f"Hola {nombre}! 👋\nPuedes enviarme tus tareas con:\n- 'agregar'\n- 'ver pendientes'\n- 'limpiar tareas'"
+        respuesta = (
+            f"👋 Hola {nombre}!\n"
+            "Soy tu asistente de tareas. Puedes usar los siguientes comandos:\n"
+            "- *agregar* o *añadir*: para registrar tareas\n"
+            "- *ver* o *pendientes*: para consultar tus tareas\n"
+            "- *limpiar* o *borrar*: para eliminar todas las tareas"
+        )
 
+    # Guardar las tareas en el archivo
     with open("tasks.json", "w") as f:
         json.dump(tasks, f)
 
     return jsonify({"reply": respuesta})
 
 
-# Ruta raíz para GET (prueba desde navegador o UptimeRobot)
+# Ruta de prueba para navegador y UptimeRobot
 @app.route("/", methods=["GET"])
 def index():
-    return "Bot activo ✅"
+    return "✅ Bot activo y escuchando mensajes."
 
 
-# Ruta /ping (extra para test)
+# Ruta ping de test adicional
 @app.route("/ping", methods=["GET"])
 def ping():
-    return "Bot corriendo correctamente 🚀"
+    return "🚀 Bot corriendo correctamente."
 
 
 # Panel de administración
@@ -99,7 +109,7 @@ def admin():
     return render_template_string(html, tasks=tasks, nombres=nombres)
 
 
+# Ejecutar el servidor en Replit o entorno local
 if __name__ == "__main__":
-    import os
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port).nix
+    app.run(host="0.0.0.0", port=port)
