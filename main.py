@@ -33,9 +33,11 @@ def whatsapp_webhook():
     respuesta = ""
 
     # Añadir tareas
-    if "agregar" in message or "añadir" in message:
-        lineas = message.split("\n")
-        tareas = [linea.strip("•.- ").capitalize() for linea in lineas if linea.strip()]
+    if message.startswith("agregar") or message.startswith("añadir"):
+        lineas = message.split("\n")[1:]  # Ignorar la primera línea
+        tareas = [
+        linea.strip("•.- ").capitalize() for linea in lineas if linea.strip()
+        ]
         if number not in tasks:
             tasks[number] = []
         tasks[number].extend(tareas)
