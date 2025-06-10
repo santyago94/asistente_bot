@@ -19,7 +19,7 @@ if os.path.exists("nombres.json"):
 else:
     nombres = {}
 
-# Ruta para recibir mensajes de WhatsApp desde UltraMsg
+# Ruta para recibir mensajes desde UltraMsg
 @app.route("/webhook", methods=["POST"])
 def whatsapp_webhook():
     data = request.get_json()
@@ -38,7 +38,7 @@ def whatsapp_webhook():
 
     # Agregar tareas
     if message.startswith("agregar") or message.startswith("añadir"):
-        lineas = message.split("\n")[1:]  # Ignorar la primera línea
+        lineas = message.split("\n")[1:]
         nuevas_tareas = [
             {
                 "texto": linea.strip("•.- ").capitalize(),
@@ -47,47 +47,34 @@ def whatsapp_webhook():
             for linea in lineas if linea.strip()
         ]
         tasks[number].extend(nuevas_tareas)
-        respuesta = "📌 Tareas guardadas:\n" + "\n".join(
-            f"- {t['texto']} ({t['fecha']})" for t in nuevas_tareas
+        respuesta = "📌 Tareas actualizadas:\n" + "\n".join(
+            f"{i+1}. {t['texto']} ({t['fecha']})" for i, t in enumerate(tasks[number])
         )
 
-    # Ver tareas pendientes
-    elif "ver" in message or "pendientes" in message:
-        lista = tasks.get(number, [])
-        if lista:
-            respuesta = "📋 Tus tareas pendientes:\n" + "\n".join(
-                f"{i+1}. {t['texto']} ({t['fecha']})" for i, t in enumerate(lista)
-            )
-        else:
-            respuesta = "✅ No tienes tareas pendientes."
-
-    # Finalizar una tarea específica
-    elif message.startswith("finalizar") or message.startswith("borrar"):
+    # Finalizar tarea específica
+    elif message.startswith("finalizar"):
         try:
             indice = int(message.split()[1]) - 1
             if 0 <= indice < len(tasks[number]):
                 tarea = tasks[number].pop(indice)
-                respuesta = f"✅ Tarea finalizada: {tarea['texto']}"
+                respuesta = f"✅ Tarea finalizada: {tarea['texto']}\n\n📋 Lista actual:\n"
+                respuesta += "\n".join(
+                    f"{i+1}. {t['texto']} ({t['fecha']})" for i, t in enumerate(tasks[number])
+                ) if tasks[number] else "✅ No tienes tareas pendientes."
             else:
                 respuesta = "⚠️ Número de tarea inválido."
         except (IndexError, ValueError):
             respuesta = "❌ Escribe *finalizar N* donde N es el número de la tarea."
 
-    # Limpiar toda la lista
-    elif "limpiar todo" in message:
-        tasks[number] = []
-        respuesta = "🧹 Todas las tareas han sido eliminadas."
-
-    # Ayuda o mensaje por defecto
+    # Mensaje por defecto
     else:
         nombre = nombres.get(number, number)
         respuesta = (
             f"👋 Hola {nombre}!\n"
-            "Soy tu asistente de tareas. Comandos disponibles:\n"
-            "- *agregar*:\n  agregar\n  - Comprar abono\n  - Regar plantas\n"
-            "- *ver* o *pendientes*: Ver tus tareas con fechas\n"
-            "- *finalizar N*: Eliminar una tarea específica\n"
-            "- *limpiar todo*: Borrar todas las tareas"
+            "Puedes escribirme así para agregar tareas:\n"
+            "*agregar*\n- Comprar abono\n- Limpiar pozo\n\n"
+            "Y para finalizar alguna:\n"
+            "*finalizar 1*"
         )
 
     # Guardar tareas actualizadas
@@ -97,19 +84,16 @@ def whatsapp_webhook():
     return jsonify({"reply": respuesta})
 
 
-# Ruta de prueba para navegador
 @app.route("/", methods=["GET"])
 def index():
     return "✅ Bot activo y escuchando mensajes."
 
 
-# Ruta para monitoreo
 @app.route("/ping", methods=["GET"])
 def ping():
     return "🚀 Bot corriendo correctamente."
 
 
-# Panel de administración web
 @app.route("/admin")
 def admin():
     html = """
@@ -137,5 +121,3 @@ def admin():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
-
