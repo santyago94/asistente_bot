@@ -6,25 +6,26 @@ import requests
 
 app = Flask(__name__)
 
-# TOKEN de UltraMsg (mejor usar variables de entorno)
-ULTRAMSG_TOKEN = os.getenv("ULTRAMSG_TOKEN") or "a7y668viie06mzh9"  # Reemplaza si no usas .env
+# === Configuración de UltraMsg ===
+ULTRAMSG_TOKEN = os.getenv("ULTRAMSG_TOKEN") or "a7y668viie06mzh9"
 INSTANCE_ID = "instance124726"
 
-# Cargar tareas desde archivo JSON
+# === Cargar archivos de datos ===
+# Tareas
 if os.path.exists("tasks.json"):
     with open("tasks.json", "r") as f:
         tasks = json.load(f)
 else:
     tasks = {}
 
-# Cargar nombres personalizados desde nombres.json
+# Nombres personalizados
 if os.path.exists("nombres.json"):
     with open("nombres.json", "r") as f:
         nombres = json.load(f)
 else:
     nombres = {}
 
-# Función para enviar mensaje por UltraMsg
+# === Función para enviar mensaje por UltraMsg ===
 def enviar_mensaje(numero, mensaje):
     url = f"https://api.ultramsg.com/{INSTANCE_ID}/messages/chat"
     payload = {
@@ -36,9 +37,9 @@ def enviar_mensaje(numero, mensaje):
     try:
         requests.post(url, json=payload, headers=headers)
     except Exception as e:
-        print(f"Error al enviar mensaje a {numero}: {e}")
+        print(f"❌ Error al enviar mensaje a {numero}: {e}")
 
-# Ruta principal del bot (Webhook)
+# === Webhook: Recibe mensajes de WhatsApp ===
 @app.route("/webhook", methods=["POST"])
 def whatsapp_webhook():
     data = request.get_json()
@@ -51,14 +52,26 @@ def whatsapp_webhook():
 
     respuesta = ""
 
+    # === Agregar tareas ===
     if "agregar" in message or "añadir" in message:
         lineas = message.split("\n")
-        tareas = [linea.strip("•.- ").capitalize() for linea in lineas if linea.strip()]
+        tareas_nuevas = [linea.strip("•.- ").capitalize() for linea in lineas if linea.strip()]
+
         if number not in tasks:
             tasks[number] = []
-        tasks[number].extend(tareas)
-        respuesta = f"📌 Tareas guardadas:\n- " + "\n- ".join(tareas)
 
+        tareas_guardadas = []
+        for tarea in tareas_nuevas:
+            if tarea not in tasks[number]:
+                tasks[number].append(tarea)
+                tareas_guardadas.append(tarea)
+
+        if tareas_guardadas:
+            respuesta = f"📌 Tareas guardadas:\n- " + "\n- ".join(tareas_guardadas)
+        else:
+            respuesta = "⚠️ Las tareas ya estaban registradas."
+
+    # === Ver tareas ===
     elif "ver" in message or "pendientes" in message:
         lista = tasks.get(number, [])
         if lista:
@@ -66,32 +79,32 @@ def whatsapp_webhook():
         else:
             respuesta = "✅ No tienes tareas pendientes."
 
+    # === Eliminar tareas ===
     elif "limpiar" in message or "borrar" in message:
         tasks[number] = []
-        respuesta = "🧹 Tareas eliminadas."
+        respuesta = "🧹 Todas tus tareas han sido eliminadas."
 
+    # === Mensaje por defecto ===
     else:
         nombre = nombres.get(number, number)
         respuesta = (
             f"👋 Hola {nombre}!\n"
-            "Soy tu asistente de tareas. Puedes usar los siguientes comandos:\n"
-            "- *agregar* o *añadir*: para registrar tareas\n"
-            "- *ver* o *pendientes*: para consultar tus tareas\n"
-            "- *limpiar* o *borrar*: para eliminarlas todas"
+            "Soy tu asistente de tareas por WhatsApp. Puedes usar los siguientes comandos:\n"
+            "➡️ *agregar tarea*\n➡️ *ver tareas*\n➡️ *limpiar tareas*"
         )
 
-    # Guardar cambios
+    # Guardar cambios en archivo
     with open("tasks.json", "w") as f:
         json.dump(tasks, f, indent=2)
 
     return jsonify({"reply": respuesta})
 
-# Ruta para probar el bot
+# === Página de estado ===
 @app.route("/", methods=["GET"])
 def home():
-    return "Bot de tareas funcionando correctamente ✅"
+    return "✅ Bot de tareas funcionando correctamente"
 
-# Ruta de recordatorio diario
+# === Ruta de recordatorio diario ===
 @app.route("/recordatorio", methods=["GET"])
 def enviar_recordatorios():
     enviados = 0
@@ -102,6 +115,6 @@ def enviar_recordatorios():
             enviados += 1
     return f"✅ Recordatorios enviados a {enviados} usuarios.", 200
 
-# Ejecutar localmente si no se usa gunicorn
+# === Iniciar servidor (solo para pruebas locales) ===
 if __name__ == "__main__":
     app.run(debug=True)
